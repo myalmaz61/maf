@@ -1,5 +1,5 @@
 "use strict";
-// My Address Finder v0.4 — UPRN → Maps; direct API + CORS fallback + useful diagnostics.
+// My Address Finder v0.5 — v0.4 navigation preserved; one-tap clipboard paste.
 const $ = (id) => document.getElementById(id);
 const postcodeInput = $("postcode");
 const statusBox = $("status");
@@ -9,6 +9,7 @@ const searchBtn = $("search-btn");
 const retryWrap = $("retry-wrap");
 const uprnInput = $("uprn");
 const uprnBtn = $("uprn-btn");
+const uprnPasteBtn = $("uprn-paste-btn");
 const uprnStatusBox = $("uprn-status");
 const uprnResultBox = $("uprn-result");
 const SERVERS = [
@@ -151,6 +152,12 @@ function validUprn(value) {
   // Official UPRN numeric identifier, 1–12 digits; no leading zero.
   return /^[1-9][0-9]{0,11}$/.test(value);
 }
+function extractUprn(text) {
+  // Accept a bare number or a single FindMyAddress-style "UPRN: 123456" line.
+  // Do not guess from arbitrary text containing other numbers.
+  const match = String(text || "").trim().match(/^(?:UPRN\s*[:#-]?\s*)?([1-9][0-9]{0,11})$/i);
+  return match ? match[1] : null;
+}
 // The official OS Open UPRN data is republished via these public APIs.
 // First try direct API requests. A third-party proxy is used ONLY when the direct
 // browser requests fail (e.g. missing CORS response headers).
@@ -278,13 +285,35 @@ $("search-form").addEventListener("submit", (event) => {event.preventDefault();d
 $("retry-btn").addEventListener("click", () => {serverIndex = (serverIndex + 1) % SERVERS.length;doSearch(true);});
 $("uprn-form").addEventListener("submit", (event) => {event.preventDefault();lookupUprn();});
 // A complete UPRN pasted from FindMyAddress starts lookup immediately.
-// Manual typing remains safe: press Enter / Намери when finished.
+// Manual typing remains safe: press Enter / Към Google Maps when finished.
 uprnInput.addEventListener("paste", event => {
-  const value = (event.clipboardData?.getData("text") || "").trim();
-  if (!validUprn(value)) return;
+  const uprn = extractUprn(event.clipboardData?.getData("text"));
+  if (!uprn) return;
   event.preventDefault();
-  uprnInput.value = value;
+  uprnInput.value = uprn;
   lookupUprn();
+});
+// Clipboard read requires HTTPS and a real user gesture. It may be blocked
+// by Android browser permissions; normal long-press -> Paste still works.
+uprnPasteBtn.addEventListener("click", async () => {
+  if (!navigator.clipboard || typeof navigator.clipboard.readText !== "function") {
+    uprnInput.focus();
+    setUprnStatus("Телефонът не разрешава директно поставяне. Задръж полето и избери „Постави“ — търсенето ще започне автоматично.");
+    return;
+  }
+  try {
+    const copied = await navigator.clipboard.readText();
+    const uprn = extractUprn(copied);
+    if (!uprn) {
+      setUprnStatus("В clipboard няма валиден UPRN. Копирай само номера (или „UPRN: номер“) от FindMyAddress.", "error");
+      return;
+    }
+    uprnInput.value = uprn;
+    lookupUprn();
+  } catch (_) {
+    uprnInput.focus();
+    setUprnStatus("Браузърът не предостави достъп до clipboard. Задръж полето и избери „Постави“ — приложението ще потърси автоматично.");
+  }
 });
 uprnInput.addEventListener("input", () => {
   // Never display directions for an old UPRN after the user changes the input.

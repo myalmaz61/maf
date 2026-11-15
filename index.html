@@ -15,23 +15,26 @@
 <body>
   <main class="app">
     <header class="hero">
-      <div class="brand"><span class="brand-icon" aria-hidden="true">⌖</span><span>MY ADDRESS FINDER <small>v0.4 · директно към Maps</small></span></div>
+      <div class="brand"><span class="brand-icon" aria-hidden="true">⌖</span><span>MY ADDRESS FINDER <small>v0.5 · бързо към Maps</small></span></div>
       <h1>Намери адрес.<br><em>Тръгни с Maps.</em></h1>
       <p>Въведи UPRN и премини директно към Google Maps. Postcode търсенето остава като допълнителна опция.</p>
     </header>
 
     <section class="panel uprn-panel" aria-labelledby="uprn-heading">
       <div class="section-head"><h2 id="uprn-heading">1. UPRN → Google Maps</h2><span class="new-tag">1 ДЕЙСТВИЕ</span></div>
-      <p>Постави UPRN от FindMyAddress — ще започне автоматично. Ако го пишеш на ръка, натисни „Към Maps“ само веднъж.</p>
+      <p>Копирай UPRN от FindMyAddress и натисни „Постави“ — приложението само ще отвори Google Maps. Можеш и да поставиш номера в полето или да го въведеш ръчно.</p>
       <form id="uprn-form" novalidate>
         <label for="uprn">UPRN на имота</label>
-        <div class="search-row">
-          <input id="uprn" name="uprn" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="12" placeholder="1–12 цифри" required aria-describedby="uprn-hint">
-          <button id="uprn-btn" type="submit">Към Maps</button>
+        <div class="uprn-entry">
+          <div class="uprn-field-row">
+            <input id="uprn" name="uprn" type="text" inputmode="numeric" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="12" placeholder="1–12 цифри" required aria-describedby="uprn-hint">
+            <button id="uprn-paste-btn" type="button" class="secondary paste-uprn-btn">Постави</button>
+          </div>
+          <button id="uprn-btn" type="submit" class="uprn-submit">Към Google Maps ↗</button>
         </div>
-        <p class="hint" id="uprn-hint">При успешно търсене Google Maps се отваря автоматично. Ако директната връзка не работи, използваме безплатен посредник cors.dev. Услугите получават UPRN, но приложението не записва история.</p>
+        <p class="hint" id="uprn-hint">Едно натискане на „Постави“ или „Към Google Maps“ е достатъчно. Ако Android блокира clipboard, задръж полето и избери „Постави“. При резервна заявка външният посредник cors.dev получава UPRN. Няма записана история.</p>
       </form>
-      <div id="uprn-status" class="status" role="status" aria-live="polite">Готово. Постави UPRN или го въведи и натисни „Към Maps“.</div>
+      <div id="uprn-status" class="status" role="status" aria-live="polite">Готово. Копирай UPRN и натисни „Постави“, или въведи номера.</div>
       <div id="uprn-result" class="uprn-result hidden"></div>
       <details id="uprn-debug" class="uprn-debug hidden"><summary>Подробности за грешката</summary><pre id="uprn-log"></pre><p>„CORS/мрежа“ не означава непременно, че UPRN е грешен. Ако е HTTP 404, възможно е имотът да липсва от данните.</p></details>
     </section>

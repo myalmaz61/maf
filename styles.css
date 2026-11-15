@@ -5,3 +5,11 @@
 
 /* v0.4 – small, opt-in error diagnostics, no extra steps on success */
 .uprn-debug{border:1px solid #d5e6e6;border-radius:12px;padding:12px;margin-top:12px;color:#35555b;background:#f7fbfb}.uprn-debug summary{font-weight:700;cursor:pointer}.uprn-debug pre{font:0.80rem/1.65 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;background:#edf4f4;padding:10px;border-radius:8px}.uprn-debug p{font-size:.78rem;margin:8px 0 0!important}
+
+/* v0.5 – one-tap paste, thumb-friendly layout on Android */
+.uprn-entry{display:grid;gap:10px}
+.uprn-field-row{display:flex;gap:8px;align-items:stretch}
+.uprn-field-row input{flex:1;min-width:0}
+.uprn-panel .uprn-field-row .paste-uprn-btn{min-width:84px;background:#fff;color:#205b61;border:1px solid #8ab4b6;padding:12px 13px}
+.uprn-panel .uprn-field-row .paste-uprn-btn:hover{background:#eff8f8}
+.uprn-panel .uprn-submit{width:100%;background:#095e67;min-height:48px}
