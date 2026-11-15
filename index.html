@@ -8,14 +8,14 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./styles.css?v=0.6.0">
   <title>My Address Finder</title>
-  <script src="./app.js" defer></script>
+  <script src="./app.js?v=0.6.0" defer></script>
 </head>
 <body>
   <main class="app">
     <header class="hero">
-      <div class="brand"><span class="brand-icon" aria-hidden="true">⌖</span><span>MY ADDRESS FINDER <small>v0.5 · бързо към Maps</small></span></div>
+      <div class="brand"><span class="brand-icon" aria-hidden="true">⌖</span><span>MY ADDRESS FINDER <small>v0.6 · надеждно към Maps</small></span></div>
       <h1>Намери адрес.<br><em>Тръгни с Maps.</em></h1>
       <p>Въведи UPRN и премини директно към Google Maps. Postcode търсенето остава като допълнителна опция.</p>
     </header>
@@ -32,7 +32,7 @@
           </div>
           <button id="uprn-btn" type="submit" class="uprn-submit">Към Google Maps ↗</button>
         </div>
-        <p class="hint" id="uprn-hint">Едно натискане на „Постави“ или „Към Google Maps“ е достатъчно. Ако Android блокира clipboard, задръж полето и избери „Постави“. При резервна заявка външният посредник cors.dev получава UPRN. Няма записана история.</p>
+        <p class="hint" id="uprn-hint">Едно натискане на „Постави“ или „Към Google Maps“ е достатъчно. Ако Android блокира clipboard, задръж полето и избери „Постави“. Ако директната услуга не отговаря, резервният посредник cors.dev получава UPRN. Не се запазва история.</p>
       </form>
       <div id="uprn-status" class="status" role="status" aria-live="polite">Готово. Копирай UPRN и натисни „Постави“, или въведи номера.</div>
       <div id="uprn-result" class="uprn-result hidden"></div>

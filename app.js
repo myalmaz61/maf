@@ -1,5 +1,6 @@
 "use strict";
-// My Address Finder v0.5 — v0.4 navigation preserved; one-tap clipboard paste.
+// My Address Finder v0.6 — reliability fixes; v0.4 UPRN providers and Maps links preserved.
+// No analytics, API keys, UPRN history or persistent address storage.
 const $ = (id) => document.getElementById(id);
 const postcodeInput = $("postcode");
 const statusBox = $("status");
@@ -22,6 +23,10 @@ let serverIndex = 0;
 let controller = null;
 let uprnController = null;
 
+function isOffline() {
+  // navigator.onLine is only a hint; actual request failures are still handled separately.
+  return typeof navigator !== "undefined" && navigator.onLine === false;
+}
 function normalisePostcode(input) {
   const pc = String(input || "").toUpperCase().replace(/\s+/g, "").trim();
   if (!/^(GIR0AA|[A-Z]{1,2}[0-9][0-9A-Z]?[0-9][A-Z]{2})$/.test(pc)) return null;
@@ -111,6 +116,10 @@ async function doSearch(useBackup = false) {
   const postcode = normalisePostcode(postcodeInput.value);
   if (!postcode) { setStatus("Въведи пълен UK postcode, например TF10 7AB.","error");postcodeInput.focus();return; }
   postcodeInput.value = postcode;
+  if (isOffline()) {
+    setStatus("Телефонът е офлайн. Свържи се с интернет и опитай отново.", "error");
+    return;
+  }
   if (controller) controller.abort();
   controller = new AbortController();
   const active = controller;
@@ -132,10 +141,15 @@ async function doSearch(useBackup = false) {
     if (!useBackup) serverIndex = 0;
     const query = createQuery(postcode, lastCoords);
     const data = await jsonResponse(SERVERS[serverIndex] + "?data=" + encodeURIComponent(query), {}, active.signal);
+    // An old search must never overwrite a newer postcode or its results.
+    if (controller !== active || active.signal.aborted || normalisePostcode(postcodeInput.value) !== postcode) return;
     if (data.remark) throw new Error("OVERPASS_BUSY");
     showResults(parseAddresses(data.elements, postcode), postcode);
   } catch (err) {
-    if (err.name === "AbortError") {
+    if (controller !== active) return;
+    if (isOffline()) {
+      setStatus("Телефонът е офлайн. Свържи се с интернет и опитай отново.", "error");
+    } else if (err.name === "AbortError") {
       setStatus("Търсенето отне твърде дълго. Опитай друг сървър или FindMyAddress.","error");
     } else if (err.message === "POSTCODE_NOT_FOUND" || err.message === "HTTP 404") {
       setStatus("Postcode не е намерен. Провери дали е написан правилно.","error");
@@ -215,8 +229,19 @@ async function tryUprnProvider(provider, uprn, signal, viaProxy, details) {
     signal.removeEventListener("abort", cancel);
   }
 }
-function attemptGroup(uprn, signal, viaProxy, details) {
-  return Promise.any(UPRN_PROVIDERS.map(p => tryUprnProvider(p,uprn,signal,viaProxy,details)));
+function attemptGroup(uprn, signal, viaProxy, details, providers = UPRN_PROVIDERS) {
+  return Promise.any(providers.map(p => tryUprnProvider(p,uprn,signal,viaProxy,details)));
+}
+function errorsFromGroup(error) {
+  // Promise.any guarantees AggregateError.errors in the same order as inputs.
+  return error instanceof AggregateError ? error.errors : [error];
+}
+function canRetryThroughProxy(error) {
+  const message = String(error?.message || "");
+  // CORS, timeout and temporary server faults can be remedied by the public proxy.
+  // A genuine 404 or invalid coordinates should NOT cause more unnecessary requests.
+  return message === "NETWORK_CORS" || message === "TIMEOUT" ||
+    /^HTTP_(?:408|425|429|5\d\d)$/.test(message);
 }
 function showUprnFailure(uprn, problems, details) {
   uprnResultBox.classList.remove("hidden");
@@ -243,6 +268,10 @@ async function lookupUprn() {
     setUprnStatus("Въведи UPRN от 1 до 12 цифри, без букви или интервали.","error");
     uprnInput.focus(); return;
   }
+  if (isOffline()) {
+    setUprnStatus("Телефонът е офлайн. Свържи се с интернет и опитай отново.", "error");
+    return;
+  }
   const active = new AbortController();
   uprnController = active;
   uprnBtn.disabled = true;
@@ -254,14 +283,21 @@ async function lookupUprn() {
     try {
       found = await attemptGroup(uprn,active.signal,false,details);
     } catch (err) {
-      problems = err instanceof AggregateError ? err.errors : [err];
-      if (active.signal.aborted) return;
-      setUprnStatus("Първата връзка не успя. Опитвам резервен начин автоматично…");
-      // The anonymous proxy sees the requested UPRN; make that transparent in the UI.
-      try {
-        found = await attemptGroup(uprn,active.signal,true,details);
-      } catch (err2) {
-        problems = problems.concat(err2 instanceof AggregateError ? err2.errors : [err2]);
+      problems = errorsFromGroup(err);
+      if (active.signal.aborted || uprnController !== active) return;
+      // Use the proxy only for the providers that failed with a transient error.
+      // For known/unknown UPRNs returning 404, repeating through a proxy adds no value.
+      const fallbackProviders = UPRN_PROVIDERS.filter((_, index) => canRetryThroughProxy(problems[index]));
+      if (fallbackProviders.length && !isOffline()) {
+        setUprnStatus("Директната връзка е недостъпна. Опитвам резервен начин…");
+        // The anonymous proxy sees the requested UPRN; make that transparent in the UI.
+        try {
+          found = await attemptGroup(uprn, active.signal, true, details, fallbackProviders);
+        } catch (err2) {
+          problems = problems.concat(errorsFromGroup(err2));
+        }
+      } else {
+        details.push("Няма нужда от заявка през външен посредник.");
       }
     }
     if (uprnController !== active || active.signal.aborted || uprnInput.value.trim() !== uprn) return;
@@ -271,7 +307,13 @@ async function lookupUprn() {
       // When Android prevents a delayed app switch, leave a single manual fallback.
       uprnResultBox.classList.remove("hidden");
       uprnResultBox.replaceChildren(makeLink("Отвори Google Maps ↗", destination, "link-button maps-main"));
-      window.location.assign(destination);
+      try {
+        window.location.assign(destination);
+      } catch (_) {
+        // Unusual browsers can refuse automatic app switching after an async fetch.
+        // The already visible "Отвори Google Maps" link remains a manual fallback.
+        setUprnStatus("Координатите са намерени. Ако Maps не се отвори, използвай бутона по-долу.", "good");
+      }
     } else {
       showUprnFailure(uprn,problems,details);
     }
@@ -281,6 +323,15 @@ async function lookupUprn() {
     }
   }
 }
+// Prevent an old postcode response from appearing after the user edits the field.
+postcodeInput.addEventListener("input", () => {
+  if (controller) {
+    controller.abort(); controller = null; searchBtn.disabled = false;
+  }
+  resultsBox.replaceChildren(); meta.classList.add("hidden");
+  retryWrap.classList.add("hidden");
+  setStatus("Готово за търсене по postcode.");
+});
 $("search-form").addEventListener("submit", (event) => {event.preventDefault();doSearch();});
 $("retry-btn").addEventListener("click", () => {serverIndex = (serverIndex + 1) % SERVERS.length;doSearch(true);});
 $("uprn-form").addEventListener("submit", (event) => {event.preventDefault();lookupUprn();});
@@ -328,6 +379,21 @@ $("manual-form").addEventListener("submit", (event) => {
   const pc = normalisePostcode(postcodeInput.value);
   window.open(mapsUrl([address,pc,"UK"].filter(Boolean).join(", "),null),"_blank","noopener,noreferrer");
 });
+// Offline/online events never launch a route by themselves.
+window.addEventListener("offline", () => {
+  if (uprnController) {
+    uprnController.abort(); uprnController = null; uprnBtn.disabled = false;
+  }
+  if (controller) {
+    controller.abort(); controller = null; searchBtn.disabled = false;
+  }
+  setUprnStatus("Телефонът е офлайн. Провери интернет връзката и опитай отново.", "error");
+  setStatus("Телефонът е офлайн. Провери интернет връзката и опитай отново.", "error");
+});
+window.addEventListener("online", () => {
+  if (!uprnController) setUprnStatus("Връзката изглежда възстановена. Можеш да потърсиш UPRN отново.");
+  if (!controller) setStatus("Връзката изглежда възстановена. Можеш да потърсиш postcode отново.");
+});
 if ("serviceWorker" in navigator && location.protocol === "https:") {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js", {updateViaCache:"none"}).catch(() => {}));
 }
