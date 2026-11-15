@@ -13,3 +13,21 @@
 .uprn-panel .uprn-field-row .paste-uprn-btn{min-width:84px;background:#fff;color:#205b61;border:1px solid #8ab4b6;padding:12px 13px}
 .uprn-panel .uprn-field-row .paste-uprn-btn:hover{background:#eff8f8}
 .uprn-panel .uprn-submit{width:100%;background:#095e67;min-height:48px}
+
+/* v0.7 — UPRN-first Android screen; secondary tools remain accessible */
+.hero{padding-top:18px;padding-bottom:20px;margin-bottom:11px}
+.hero h1{font-size:clamp(1.65rem,6.8vw,2.5rem);margin:15px 0 9px}
+.hero p{font-size:.88rem;line-height:1.48}
+.uprn-panel{margin-top:10px}
+.uprn-panel p{margin-bottom:12px}
+.uprn-findmyaddress{font-size:.88rem!important;margin:13px 0 0!important}
+.uprn-findmyaddress a{font-weight:750;color:#075f67;text-underline-offset:3px}
+.additional-tools{margin:14px 0;background:#fff;border:1px solid #d9e6e7;border-radius:17px;overflow:hidden}
+.additional-tools>summary{position:relative;display:flex;flex-direction:column;gap:4px;list-style:none;cursor:pointer;padding:16px 42px 16px 17px;font-size:.96rem;font-weight:750;color:#16414d}
+.additional-tools>summary::-webkit-details-marker{display:none}
+.additional-tools>summary span{color:#6a7e85;font-size:.80rem;font-weight:500}
+.additional-tools>summary::after{content:"+";position:absolute;right:18px;top:17px;font-size:1.35rem;line-height:1;color:#246b6e}
+.additional-tools[open]>summary::after{content:"−"}
+.additional-tools>summary:focus-visible{outline:3px solid #90d2c7;outline-offset:-3px}
+.additional-tools-content{padding:0 9px 9px}
+.additional-tools .panel{box-shadow:none;margin:7px 0 0;border-radius:13px;padding:16px 12px}

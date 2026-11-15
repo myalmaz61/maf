@@ -1,5 +1,5 @@
 "use strict";
-// My Address Finder v0.6 — reliability fixes; v0.4 UPRN providers and Maps links preserved.
+// My Address Finder v0.7 — cleaner Android UI and stricter labelled clipboard parsing; v0.6 routing preserved.
 // No analytics, API keys, UPRN history or persistent address storage.
 const $ = (id) => document.getElementById(id);
 const postcodeInput = $("postcode");
@@ -167,10 +167,15 @@ function validUprn(value) {
   return /^[1-9][0-9]{0,11}$/.test(value);
 }
 function extractUprn(text) {
-  // Accept a bare number or a single FindMyAddress-style "UPRN: 123456" line.
-  // Do not guess from arbitrary text containing other numbers.
-  const match = String(text || "").trim().match(/^(?:UPRN\s*[:#-]?\s*)?([1-9][0-9]{0,11})$/i);
-  return match ? match[1] : null;
+  // A single bare UPRN, or one explicitly labelled UPRN in pasted multi-line text.
+  // Never guess from postcode / house numbers / arbitrary unlabelled numeric text.
+  const source = String(text || "").trim();
+  if (!source || source.length > 1500) return null;
+  const onlyNumber = source.match(/^([1-9][0-9]{0,11})$/);
+  if (onlyNumber) return onlyNumber[1];
+  const matches = [...source.matchAll(/(?:^|[\r\n])\s*(?:UPRN|Unique Property Reference Number)\s*[:#–—-]?\s*([1-9][0-9]{0,11})(?![0-9])(?=\s*(?:$|[\r\n]|[;|,]))/gi)];
+  const unique = [...new Set(matches.map(m => m[1]))];
+  return unique.length === 1 ? unique[0] : null;
 }
 // The official OS Open UPRN data is republished via these public APIs.
 // First try direct API requests. A third-party proxy is used ONLY when the direct

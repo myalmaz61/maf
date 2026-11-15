@@ -8,21 +8,21 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=0.6.0">
+  <link rel="stylesheet" href="./styles.css?v=0.7.0">
   <title>My Address Finder</title>
-  <script src="./app.js?v=0.6.0" defer></script>
+  <script src="./app.js?v=0.7.0" defer></script>
 </head>
 <body>
   <main class="app">
     <header class="hero">
-      <div class="brand"><span class="brand-icon" aria-hidden="true">⌖</span><span>MY ADDRESS FINDER <small>v0.6 · надеждно към Maps</small></span></div>
-      <h1>Намери адрес.<br><em>Тръгни с Maps.</em></h1>
-      <p>Въведи UPRN и премини директно към Google Maps. Postcode търсенето остава като допълнителна опция.</p>
+      <div class="brand"><span class="brand-icon" aria-hidden="true">⌖</span><span>MY ADDRESS FINDER <small>v0.7 · бързо към Maps</small></span></div>
+      <h1>UPRN <em>→ Google Maps</em></h1>
+      <p>Копирай номера на имота от FindMyAddress и го постави тук. При успешна проверка Maps се отваря автоматично.</p>
     </header>
 
     <section class="panel uprn-panel" aria-labelledby="uprn-heading">
-      <div class="section-head"><h2 id="uprn-heading">1. UPRN → Google Maps</h2><span class="new-tag">1 ДЕЙСТВИЕ</span></div>
-      <p>Копирай UPRN от FindMyAddress и натисни „Постави“ — приложението само ще отвори Google Maps. Можеш и да поставиш номера в полето или да го въведеш ръчно.</p>
+      <div class="section-head"><h2 id="uprn-heading">Навигация по UPRN</h2><span class="new-tag">1 ДЕЙСТВИЕ</span></div>
+      <p>Копирай UPRN и натисни <strong>„Постави“</strong>. Ако го въвеждаш ръчно, използвай „Към Google Maps“.</p>
       <form id="uprn-form" novalidate>
         <label for="uprn">UPRN на имота</label>
         <div class="uprn-entry">
@@ -32,50 +32,50 @@
           </div>
           <button id="uprn-btn" type="submit" class="uprn-submit">Към Google Maps ↗</button>
         </div>
-        <p class="hint" id="uprn-hint">Едно натискане на „Постави“ или „Към Google Maps“ е достатъчно. Ако Android блокира clipboard, задръж полето и избери „Постави“. Ако директната услуга не отговаря, резервният посредник cors.dev получава UPRN. Не се запазва история.</p>
+        <p class="hint" id="uprn-hint">Ако Android блокира clipboard, задръж полето и избери „Постави“. Не се запазва история.</p>
       </form>
+      <p class="uprn-findmyaddress">Нямаш UPRN? <a id="findmyaddress" href="https://www.findmyaddress.co.uk/" target="_blank" rel="noopener noreferrer">Отвори FindMyAddress ↗</a></p>
       <div id="uprn-status" class="status" role="status" aria-live="polite">Готово. Копирай UPRN и натисни „Постави“, или въведи номера.</div>
       <div id="uprn-result" class="uprn-result hidden"></div>
       <details id="uprn-debug" class="uprn-debug hidden"><summary>Подробности за грешката</summary><pre id="uprn-log"></pre><p>„CORS/мрежа“ не означава непременно, че UPRN е грешен. Ако е HTTP 404, възможно е имотът да липсва от данните.</p></details>
     </section>
 
-    <section class="panel" aria-labelledby="search-heading">
-      <h2 id="search-heading">2. Търсене по postcode</h2>
-      <form id="search-form" novalidate>
-        <label for="postcode">UK postcode</label>
-        <div class="search-row">
-          <input id="postcode" name="postcode" type="text" inputmode="text" autocomplete="postal-code" autocapitalize="characters" spellcheck="false" maxlength="9" placeholder="напр. TF10 7AB" required aria-describedby="postcode-hint">
-          <button id="search-btn" type="submit">Намери</button>
-        </div>
-        <p class="hint" id="postcode-hint">Търсенето е в OpenStreetMap: списъкът може да е непълен.</p>
-      </form>
-      <div id="status" class="status" role="status" aria-live="polite">Готово за търсене по postcode.</div>
-      <div id="meta" class="meta hidden"></div>
-      <div id="results" class="results" aria-live="off"></div>
-      <div id="retry-wrap" class="hidden extra-actions"><button type="button" id="retry-btn" class="secondary">Опитай друг сървър</button></div>
-    </section>
+    <details class="additional-tools" id="additional-tools">
+      <summary>Допълнителни възможности <span>Postcode и ръчен адрес</span></summary>
+      <div class="additional-tools-content">
+        <section class="panel" aria-labelledby="search-heading">
+          <h2 id="search-heading">Търсене по postcode</h2>
+          <form id="search-form" novalidate>
+            <label for="postcode">UK postcode</label>
+            <div class="search-row">
+              <input id="postcode" name="postcode" type="text" inputmode="text" autocomplete="postal-code" autocapitalize="characters" spellcheck="false" maxlength="9" placeholder="напр. TF10 7AB" required aria-describedby="postcode-hint">
+              <button id="search-btn" type="submit">Намери</button>
+            </div>
+            <p class="hint" id="postcode-hint">Търсенето е в OpenStreetMap. Списъкът може да е непълен.</p>
+          </form>
+          <div id="status" class="status" role="status" aria-live="polite">Готово за търсене по postcode.</div>
+          <div id="meta" class="meta hidden"></div>
+          <div id="results" class="results" aria-live="off"></div>
+          <div id="retry-wrap" class="hidden extra-actions"><button type="button" id="retry-btn" class="secondary">Опитай друг сървър</button></div>
+        </section>
 
-    <section class="panel" aria-labelledby="official-heading">
-      <h2 id="official-heading">За пълния списък с къщи</h2>
-      <p>OpenStreetMap няма всички адреси. Ако къщата липсва, провери в <strong>FindMyAddress</strong>. Оттам можеш да вземеш UPRN и да го поставиш в полето за UPRN най-горе.</p>
-      <a id="findmyaddress" class="link-button" href="https://www.findmyaddress.co.uk/" target="_blank" rel="noopener noreferrer">Отвори FindMyAddress ↗</a>
-    </section>
-
-    <section class="panel" aria-labelledby="manual-heading">
-      <h2 id="manual-heading">Ръчно към Google Maps</h2>
-      <p>Ако имаш адрес, но нямаш UPRN, въведи го тук. Postcode от първото поле ще бъде добавен автоматично, ако е валиден.</p>
-      <form id="manual-form">
-        <label for="manual-address">Къща / номер / улица</label>
-        <input id="manual-address" type="text" placeholder="напр. Rose Cottage, High Street" maxlength="200" required>
-        <button type="submit" class="manual-btn">Навигация с Google Maps ↗</button>
-      </form>
-      <p class="hint">Провери входа на имота: координатите на сградата не винаги сочат правилния достъп за автомобил.</p>
-    </section>
+        <section class="panel" aria-labelledby="manual-heading">
+          <h2 id="manual-heading">Ръчно към Google Maps</h2>
+          <p>Ако имаш адрес, но нямаш UPRN, въведи го тук. Postcode от полето по-горе ще бъде добавен автоматично, ако е валиден.</p>
+          <form id="manual-form">
+            <label for="manual-address">Къща / номер / улица</label>
+            <input id="manual-address" type="text" placeholder="напр. Rose Cottage, High Street" maxlength="200" required>
+            <button type="submit" class="manual-btn">Навигация с Google Maps ↗</button>
+          </form>
+          <p class="hint">Точката на имота невинаги съвпада с автомобилния вход.</p>
+        </section>
+      </div>
+    </details>
 
     <footer>
       <p>Адреси: © OpenStreetMap contributors (<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">ODbL</a>). Postcode координати: <a href="https://postcodes.io/" target="_blank" rel="noopener noreferrer">Postcodes.io</a>.</p>
       <p>UPRN: <a href="https://uprns.io/" target="_blank" rel="noopener noreferrer">uprns.io</a> и <a href="https://uprn.org.uk/" target="_blank" rel="noopener noreferrer">UPRN.org.uk</a> · Contains OS data © Crown copyright and database right 2026 · ONS data, Open Government Licence v3.0. Резервна връзка чрез <a href="https://cors.dev/privacy" target="_blank" rel="noopener noreferrer">cors.dev</a>.</p>
-      <p>Лично ползване · Без сървър, логин, съхранени адреси или API ключ.</p>
+      <p>При проблем с директната връзка резервният посредник cors.dev получава UPRN. Лично ползване · Без сървър, логин, съхранени адреси или API ключ.</p>
     </footer>
   </main>
 </body>
