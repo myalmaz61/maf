@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#143b4b">
+  <meta name="description" content="Лично приложение за UK postcode и UPRN търсене с навигация през Google Maps.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  <link rel="stylesheet" href="./styles.css">
+  <title>My Address Finder</title>
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <main class="app">
+    <header class="hero">
+      <div class="brand"><span class="brand-icon" aria-hidden="true">⌖</span><span>MY ADDRESS FINDER <small>v0.2 · личен тест</small></span></div>
+      <h1>Намери адрес.<br><em>Тръгни с Maps.</em></h1>
+      <p>Използвай postcode за наличните къщи или UPRN за координати на конкретен имот.</p>
+    </header>
+
+    <section class="panel" aria-labelledby="search-heading">
+      <h2 id="search-heading">1. Търсене по postcode</h2>
+      <form id="search-form" novalidate>
+        <label for="postcode">UK postcode</label>
+        <div class="search-row">
+          <input id="postcode" name="postcode" type="text" inputmode="text" autocomplete="postal-code" autocapitalize="characters" spellcheck="false" maxlength="9" placeholder="напр. TF10 7AB" required aria-describedby="postcode-hint">
+          <button id="search-btn" type="submit">Намери</button>
+        </div>
+        <p class="hint" id="postcode-hint">Търсенето е в OpenStreetMap: списъкът може да е непълен.</p>
+      </form>
+      <div id="status" class="status" role="status" aria-live="polite">Готово за търсене по postcode.</div>
+      <div id="meta" class="meta hidden"></div>
+      <div id="results" class="results" aria-live="off"></div>
+      <div id="retry-wrap" class="hidden extra-actions"><button type="button" id="retry-btn" class="secondary">Опитай друг сървър</button></div>
+    </section>
+
+    <section class="panel uprn-panel" aria-labelledby="uprn-heading">
+      <div class="section-head"><h2 id="uprn-heading">2. Търсене по UPRN</h2><span class="new-tag">НОВО</span></div>
+      <p>Когато знаеш UPRN от FindMyAddress, въведи го тук. Ще потърсим точката на имота от отворените данни на Ordnance Survey.</p>
+      <form id="uprn-form" novalidate>
+        <label for="uprn">UPRN на имота</label>
+        <div class="search-row">
+          <input id="uprn" name="uprn" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="12" placeholder="1–12 цифри" required aria-describedby="uprn-hint">
+          <button id="uprn-btn" type="submit">Намери</button>
+        </div>
+        <p class="hint" id="uprn-hint">Без API ключ и регистрация. UPRN не се запазва в приложението.</p>
+      </form>
+      <div id="uprn-status" class="status" role="status" aria-live="polite">Готово за търсене по UPRN.</div>
+      <div id="uprn-result" class="uprn-result hidden"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="official-heading">
+      <h2 id="official-heading">За пълния списък с къщи</h2>
+      <p>OpenStreetMap няма всички адреси. Ако къщата липсва, провери в <strong>FindMyAddress</strong>. Оттам можеш да вземеш UPRN и да го поставиш в полето по-горе.</p>
+      <a id="findmyaddress" class="link-button" href="https://www.findmyaddress.co.uk/" target="_blank" rel="noopener noreferrer">Отвори FindMyAddress ↗</a>
+    </section>
+
+    <section class="panel" aria-labelledby="manual-heading">
+      <h2 id="manual-heading">Ръчно към Google Maps</h2>
+      <p>Ако имаш адрес, но нямаш UPRN, въведи го тук. Postcode от първото поле ще бъде добавен автоматично, ако е валиден.</p>
+      <form id="manual-form">
+        <label for="manual-address">Къща / номер / улица</label>
+        <input id="manual-address" type="text" placeholder="напр. Rose Cottage, High Street" maxlength="200" required>
+        <button type="submit" class="manual-btn">Навигация с Google Maps ↗</button>
+      </form>
+      <p class="hint">Провери входа на имота: координатите на сградата не винаги сочат правилния достъп за автомобил.</p>
+    </section>
+
+    <footer>
+      <p>Адреси: © OpenStreetMap contributors (<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">ODbL</a>). Postcode координати: <a href="https://postcodes.io/" target="_blank" rel="noopener noreferrer">Postcodes.io</a>.</p>
+      <p>UPRN: <a href="https://uprns.io/" target="_blank" rel="noopener noreferrer">uprns.io</a> · Contains OS data © Crown copyright and database right 2026 · ONS data, Open Government Licence v3.0.</p>
+      <p>Лично ползване · Без сървър, логин, съхранени адреси или API ключ.</p>
+    </footer>
+  </main>
+</body>
+</html>
