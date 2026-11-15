@@ -1,5 +1,5 @@
 "use strict";
-// My Address Finder v0.2 — free open-data lookups; no private address database.
+// My Address Finder v0.3 — one-action UPRN to Google Maps, two open-data sources.
 const $ = (id) => document.getElementById(id);
 const postcodeInput = $("postcode");
 const statusBox = $("status");
@@ -151,83 +151,98 @@ function validUprn(value) {
   // Official UPRN numeric identifier, 1–12 digits; no leading zero.
   return /^[1-9][0-9]{0,11}$/.test(value);
 }
-function addDetail(label, value, container) {
-  if (!value && value !== 0) return;
-  const row = document.createElement("div"); row.className = "data-row";
-  const dt = document.createElement("span"); dt.className = "data-label"; dt.textContent = label;
-  const dd = document.createElement("strong"); dd.className = "data-value"; dd.textContent = String(value);
-  row.append(dt, dd); container.append(row);
-}
-function showUprnRecord(data, uprn) {
-  uprnResultBox.replaceChildren();
-  uprnResultBox.classList.remove("hidden");
-  const title = document.createElement("h3"); title.textContent = "Имот UPRN " + uprn;
-  const details = document.createElement("div"); details.className = "uprn-data";
-  addDetail("Postcode", data.postcode, details);
-  addDetail("Населено място", data.town, details);
-  addDetail("Община", data.admin_district, details);
-  addDetail("Държава", data.country, details);
-  const lat = typeof data.latitude === "number" ? data.latitude : NaN;
-  const lon = typeof data.longitude === "number" ? data.longitude : NaN;
-  const hasCoords = Number.isFinite(lat) && Number.isFinite(lon)
-    && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
-  const note = document.createElement("p"); note.className = "hint important-note";
-  uprnResultBox.append(title, details);
-  if (hasCoords) {
-    addDetail("GPS координати", `${lat.toFixed(6)}, ${lon.toFixed(6)}`, details);
-    uprnResultBox.append(makeLink("Навигация с Google Maps ↗", mapsUrl("", {lat,lon}), "link-button maps-main"));
-    note.textContent = "Навигацията е към точката на имота, не непременно към входа за автомобили. Провери маршрута преди пътуване.";
-    setUprnStatus("UPRN е намерен. Можеш да отвориш GPS координатите в Google Maps.", "good");
-  } else {
-    note.textContent = "UPRN е намерен, но услугата не предостави GPS координати. Не е безопасно да насочвам Google Maps към приблизителен адрес.";
-    setUprnStatus("UPRN е намерен, но няма координати за навигация.", "error");
+// Independent providers of OS Open UPRN coordinates (no key, no signup).
+// A public API may be unreachable or block cross-origin requests from GitHub Pages.
+const UPRN_PROVIDERS = [
+  {name: "uprns.io", url: uprn => `https://api.uprns.io/uprns/${uprn}`},
+  {name: "UPRN.org.uk", url: uprn => `https://uprn.org.uk/uprns/${uprn}.json`}
+];
+function verifiedCoordinates(data, uprn) {
+  if (!data || String(data.uprn) !== uprn) throw new Error("INVALID_RECORD");
+  const lat = Number(data.latitude);
+  const lon = Number(data.longitude);
+  // Strict GB bounding box: never start navigation from an unverified/absent point.
+  if (data.latitude === null || data.longitude === null ||
+      !Number.isFinite(lat) || !Number.isFinite(lon) ||
+      lat < 49.5 || lat > 61 || lon < -9 || lon > 2.5) {
+    throw new Error("NO_COORDS");
   }
-  uprnResultBox.append(makeLink("Виж данните в uprns.io ↗", "https://uprns.io/uprns/" + uprn, "secondary link-button secondary-link"));
-  uprnResultBox.append(note);
+  return {lat, lon};
+}
+async function tryUprnProvider(provider, uprn, signal) {
+  const response = await fetch(provider.url(uprn), {method:"GET", mode:"cors", credentials:"omit", cache:"no-store", signal});
+  if (!response.ok) throw new Error(`HTTP_${response.status}`);
+  const data = await response.json();
+  return {point: verifiedCoordinates(data,uprn),provider:provider.name};
+}
+function showUprnError(uprn, errors) {
+  const reasons = errors.map(e => e && e.message || "network");
+  if (reasons.length && reasons.every(v => v === "HTTP_404")) {
+    setUprnStatus("UPRN не е намерен в двата публични източника. Провери номера във FindMyAddress.", "error");
+  } else if (reasons.includes("NO_COORDS")) {
+    setUprnStatus("Не са получени проверени координати за този UPRN. Не отварям приблизителен адрес.", "error");
+  } else {
+    setUprnStatus("Двата публични източника не върнаха координати (връзка, CORS или временен проблем). Google Maps не може да използва само UPRN.", "error");
+  }
+  uprnResultBox.classList.remove("hidden");
+  uprnResultBox.replaceChildren(
+    makeLink("Провери имота в uprns.io ↗", `https://uprns.io/uprns/${uprn}`, "secondary link-button secondary-link"),
+    makeLink("Провери имота в UPRN.org.uk ↗", `https://uprn.org.uk/uprns/${uprn}`, "secondary link-button secondary-link")
+  );
 }
 async function lookupUprn() {
   const uprn = uprnInput.value.trim();
+  if (uprnController) uprnController.abort();
   uprnResultBox.replaceChildren();
   uprnResultBox.classList.add("hidden");
   if (!validUprn(uprn)) {
-    setUprnStatus("UPRN трябва да съдържа от 1 до 12 цифри, без интервали или букви.", "error");
+    setUprnStatus("Въведи UPRN от 1 до 12 цифри, без букви или интервали.", "error");
     uprnInput.focus();
     return;
   }
-  if (uprnController) uprnController.abort();
-  uprnController = new AbortController();
-  const active = uprnController;
-  const timer = setTimeout(() => active.abort(), 14000);
+  const active = new AbortController();
+  uprnController = active;
+  const timer = setTimeout(() => active.abort(), 10000);
   uprnBtn.disabled = true;
-  setUprnStatus("Проверявам UPRN в официалните отворени данни…");
+  setUprnStatus("Намирам координатите и ще отворя Google Maps автоматично…");
   try {
-    const data = await jsonResponse("https://api.uprns.io/uprns/" + uprn, {headers:{Accept:"application/json"}}, active.signal);
-    // Be careful: a mismatched or malformed response must not direct a user elsewhere.
-    if (!data || String(data.uprn) !== uprn) throw new Error("INVALID_RECORD");
-    if (active.signal.aborted) return;
-    showUprnRecord(data, uprn);
-  } catch (err) {
-    // A newer lookup or edited UPRN supersedes the old request.
+    // Take the first verified point; the other service remains a fallback.
+    const found = await Promise.any(UPRN_PROVIDERS.map(provider => tryUprnProvider(provider,uprn,active.signal)));
+    if (uprnController !== active || active.signal.aborted || uprnInput.value.trim() !== uprn) return;
+    clearTimeout(timer);
+    active.abort();
+    setUprnStatus(`Намерено чрез ${found.provider}. Отварям Google Maps…`, "good");
+    // Retain a link for browsers that refuse automatic external-app switching.
+    uprnResultBox.classList.remove("hidden");
+    uprnResultBox.replaceChildren(makeLink("Отвори Google Maps ↗", mapsUrl("",found.point),"link-button maps-main"));
+    // One tap (or paste) starts the whole process. No second click is needed on success.
+    window.location.assign(mapsUrl("",found.point));
+  } catch(err) {
     if (uprnController !== active) return;
-    let message;
-    if (err.name === "AbortError") message = "Търсенето отне твърде дълго. Провери връзката и опитай отново.";
-    else if (err.message === "HTTP 404") message = "Този UPRN не е намерен в отворените данни. Провери цифрите във FindMyAddress.";
-    else if (err.message === "HTTP 429") message = "Публичният API временно ограничава заявките. Опитай по-късно.";
-    else if (err.message === "INVALID_RECORD") message = "Получените данни не съответстват на търсения UPRN. Не показвам навигация, за да избегнем грешен адрес.";
-    else message = "Не успях да се свържа с UPRN услугата. Възможен е мрежов проблем или ограничение на браузъра.";
-    setUprnStatus(message, "error");
-    if (!active.signal.aborted) {
+    if (active.signal.aborted) {
+      setUprnStatus("Източниците не отговориха навреме. Опитай отново, когато имаш добра връзка.", "error");
       uprnResultBox.classList.remove("hidden");
-      uprnResultBox.append(makeLink("Провери UPRN директно в uprns.io ↗", "https://uprns.io/uprns/" + uprn, "secondary link-button secondary-link"));
+      uprnResultBox.replaceChildren(makeLink("Провери имота в uprns.io ↗",`https://uprns.io/uprns/${uprn}`,"secondary link-button secondary-link"));
+    } else {
+      showUprnError(uprn,err instanceof AggregateError ? err.errors : [err]);
     }
   } finally {
     clearTimeout(timer);
-    if (uprnController === active) { uprnController = null; uprnBtn.disabled = false; }
+    if (uprnController === active) {uprnController=null;uprnBtn.disabled=false;}
   }
 }
 $("search-form").addEventListener("submit", (event) => {event.preventDefault();doSearch();});
 $("retry-btn").addEventListener("click", () => {serverIndex = (serverIndex + 1) % SERVERS.length;doSearch(true);});
 $("uprn-form").addEventListener("submit", (event) => {event.preventDefault();lookupUprn();});
+// A complete UPRN pasted from FindMyAddress starts lookup immediately.
+// Manual typing remains safe: press Enter / Намери when finished.
+uprnInput.addEventListener("paste", event => {
+  const value = (event.clipboardData?.getData("text") || "").trim();
+  if (!validUprn(value)) return;
+  event.preventDefault();
+  uprnInput.value = value;
+  lookupUprn();
+});
 uprnInput.addEventListener("input", () => {
   // Never display directions for an old UPRN after the user changes the input.
   if (uprnController) { uprnController.abort(); uprnController = null; uprnBtn.disabled = false; }
