@@ -2,3 +2,6 @@
 
 /* v0.3 – prominent, single-action UPRN workflow */
 .uprn-panel{border:2px solid #9fd2ca;box-shadow:0 4px 16px #0b5d5f12}.uprn-panel .search-row button{background:#095e67;min-width:100px}.uprn-panel .hint{margin-top:11px}.uprn-panel .status{font-size:.89rem}
+
+/* v0.4 – small, opt-in error diagnostics, no extra steps on success */
+.uprn-debug{border:1px solid #d5e6e6;border-radius:12px;padding:12px;margin-top:12px;color:#35555b;background:#f7fbfb}.uprn-debug summary{font-weight:700;cursor:pointer}.uprn-debug pre{font:0.80rem/1.65 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;background:#edf4f4;padding:10px;border-radius:8px}.uprn-debug p{font-size:.78rem;margin:8px 0 0!important}

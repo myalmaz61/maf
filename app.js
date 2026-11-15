@@ -1,5 +1,5 @@
 "use strict";
-// My Address Finder v0.3 — one-action UPRN to Google Maps, two open-data sources.
+// My Address Finder v0.4 — UPRN → Maps; direct API + CORS fallback + useful diagnostics.
 const $ = (id) => document.getElementById(id);
 const postcodeInput = $("postcode");
 const statusBox = $("status");
@@ -151,84 +151,127 @@ function validUprn(value) {
   // Official UPRN numeric identifier, 1–12 digits; no leading zero.
   return /^[1-9][0-9]{0,11}$/.test(value);
 }
-// Independent providers of OS Open UPRN coordinates (no key, no signup).
-// A public API may be unreachable or block cross-origin requests from GitHub Pages.
+// The official OS Open UPRN data is republished via these public APIs.
+// First try direct API requests. A third-party proxy is used ONLY when the direct
+// browser requests fail (e.g. missing CORS response headers).
+// This is a public GET: do not send private tokens or passwords through a proxy.
 const UPRN_PROVIDERS = [
-  {name: "uprns.io", url: uprn => `https://api.uprns.io/uprns/${uprn}`},
-  {name: "UPRN.org.uk", url: uprn => `https://uprn.org.uk/uprns/${uprn}.json`}
+  {name:"uprns.io", url: uprn => `https://api.uprns.io/uprns/${uprn}`},
+  {name:"UPRN.org.uk", url: uprn => `https://uprn.org.uk/uprns/${uprn}.json`}
 ];
+const CORS_PROXY = "https://proxy.cors.dev/";
+const uprnDebug = $("uprn-debug");
+const uprnLog = $("uprn-log");
+
 function verifiedCoordinates(data, uprn) {
   if (!data || String(data.uprn) !== uprn) throw new Error("INVALID_RECORD");
-  const lat = Number(data.latitude);
-  const lon = Number(data.longitude);
-  // Strict GB bounding box: never start navigation from an unverified/absent point.
-  if (data.latitude === null || data.longitude === null ||
+  const lat = Number(data.latitude), lon = Number(data.longitude);
+  if (data.latitude == null || data.longitude == null ||
       !Number.isFinite(lat) || !Number.isFinite(lon) ||
-      lat < 49.5 || lat > 61 || lon < -9 || lon > 2.5) {
-    throw new Error("NO_COORDS");
-  }
+      lat < 49.5 || lat > 61 || lon < -9 || lon > 2.5) throw new Error("NO_COORDS");
   return {lat, lon};
 }
-async function tryUprnProvider(provider, uprn, signal) {
-  const response = await fetch(provider.url(uprn), {method:"GET", mode:"cors", credentials:"omit", cache:"no-store", signal});
-  if (!response.ok) throw new Error(`HTTP_${response.status}`);
-  const data = await response.json();
-  return {point: verifiedCoordinates(data,uprn),provider:provider.name};
+function errorLabel(error) {
+  const m = String(error && error.message || "UNKNOWN");
+  if (m === "TIMEOUT") return "няма отговор навреме";
+  if (m === "NETWORK_CORS") return "блокирана заявка (CORS/мрежа)";
+  if (m === "INVALID_RECORD") return "грешен UPRN в отговора";
+  if (m === "NO_COORDS") return "няма точни координати";
+  if (m === "BAD_JSON") return "невалиден JSON отговор";
+  if (m.startsWith("HTTP_")) return "HTTP " + m.slice(5);
+  return "неизвестна грешка";
 }
-function showUprnError(uprn, errors) {
-  const reasons = errors.map(e => e && e.message || "network");
-  if (reasons.length && reasons.every(v => v === "HTTP_404")) {
-    setUprnStatus("UPRN не е намерен в двата публични източника. Провери номера във FindMyAddress.", "error");
-  } else if (reasons.includes("NO_COORDS")) {
-    setUprnStatus("Не са получени проверени координати за този UPRN. Не отварям приблизителен адрес.", "error");
-  } else {
-    setUprnStatus("Двата публични източника не върнаха координати (връзка, CORS или временен проблем). Google Maps не може да използва само UPRN.", "error");
+async function tryUprnProvider(provider, uprn, signal, viaProxy, details) {
+  const url = (viaProxy ? CORS_PROXY : "") + provider.url(uprn);
+  const timeoutController = new AbortController();
+  const cancel = () => timeoutController.abort();
+  signal.addEventListener("abort", cancel, {once:true});
+  const timer = setTimeout(() => timeoutController.abort(), viaProxy ? 9500 : 4500);
+  let error;
+  try {
+    const response = await fetch(url, {
+      method:"GET", mode:"cors", credentials:"omit", cache:"no-store", signal: timeoutController.signal
+    });
+    if (!response.ok) throw new Error(`HTTP_${response.status}`);
+    let data;
+    try { data = await response.json(); } catch (_) { throw new Error("BAD_JSON"); }
+    const point = verifiedCoordinates(data,uprn);
+    details.push(`${viaProxy ? "Резервно" : "Директно"} · ${provider.name}: OK`);
+    return {point,provider:viaProxy ? provider.name + " (резервна връзка)" : provider.name};
+  } catch (err) {
+    error = timeoutController.signal.aborted && !signal.aborted ? new Error("TIMEOUT") :
+      (err && err.name === "TypeError") ? new Error("NETWORK_CORS") : err;
+    details.push(`${viaProxy ? "Резервно" : "Директно"} · ${provider.name}: ${errorLabel(error)}`);
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    signal.removeEventListener("abort", cancel);
   }
+}
+function attemptGroup(uprn, signal, viaProxy, details) {
+  return Promise.any(UPRN_PROVIDERS.map(p => tryUprnProvider(p,uprn,signal,viaProxy,details)));
+}
+function showUprnFailure(uprn, problems, details) {
   uprnResultBox.classList.remove("hidden");
   uprnResultBox.replaceChildren(
-    makeLink("Провери имота в uprns.io ↗", `https://uprns.io/uprns/${uprn}`, "secondary link-button secondary-link"),
-    makeLink("Провери имота в UPRN.org.uk ↗", `https://uprn.org.uk/uprns/${uprn}`, "secondary link-button secondary-link")
+    makeLink("Провери UPRN в сайта uprns.io ↗",`https://uprns.io/uprns/${uprn}`,"secondary link-button secondary-link")
   );
+  const categories = problems.map(e => e?.message || "UNKNOWN");
+  if (categories.length > 0 && categories.every(x=>x === "HTTP_404")) {
+    setUprnStatus("UPRN не е намерен в източниците. Провери дали номерът е актуален във FindMyAddress.","error");
+  } else if (categories.includes("NO_COORDS")) {
+    setUprnStatus("Намерена е информация, но липсват проверени координати. Няма да отварям приблизителна точка.","error");
+  } else {
+    setUprnStatus("Не успях да получа координати нито директно, нито чрез резервната връзка. Виж подробностите по-долу.","error");
+  }
+  uprnLog.textContent = details.join("\n");
+  uprnDebug.classList.remove("hidden");
 }
 async function lookupUprn() {
   const uprn = uprnInput.value.trim();
   if (uprnController) uprnController.abort();
-  uprnResultBox.replaceChildren();
-  uprnResultBox.classList.add("hidden");
+  uprnResultBox.replaceChildren(); uprnResultBox.classList.add("hidden");
+  uprnDebug.classList.add("hidden"); uprnDebug.open = false; uprnLog.textContent = "";
   if (!validUprn(uprn)) {
-    setUprnStatus("Въведи UPRN от 1 до 12 цифри, без букви или интервали.", "error");
-    uprnInput.focus();
-    return;
+    setUprnStatus("Въведи UPRN от 1 до 12 цифри, без букви или интервали.","error");
+    uprnInput.focus(); return;
   }
   const active = new AbortController();
   uprnController = active;
-  const timer = setTimeout(() => active.abort(), 10000);
   uprnBtn.disabled = true;
-  setUprnStatus("Намирам координатите и ще отворя Google Maps автоматично…");
+  const details = [];
+  let problems = [];
+  setUprnStatus("Намирам точните координати… Google Maps ще се отвори автоматично.");
   try {
-    // Take the first verified point; the other service remains a fallback.
-    const found = await Promise.any(UPRN_PROVIDERS.map(provider => tryUprnProvider(provider,uprn,active.signal)));
+    let found;
+    try {
+      found = await attemptGroup(uprn,active.signal,false,details);
+    } catch (err) {
+      problems = err instanceof AggregateError ? err.errors : [err];
+      if (active.signal.aborted) return;
+      setUprnStatus("Първата връзка не успя. Опитвам резервен начин автоматично…");
+      // The anonymous proxy sees the requested UPRN; make that transparent in the UI.
+      try {
+        found = await attemptGroup(uprn,active.signal,true,details);
+      } catch (err2) {
+        problems = problems.concat(err2 instanceof AggregateError ? err2.errors : [err2]);
+      }
+    }
     if (uprnController !== active || active.signal.aborted || uprnInput.value.trim() !== uprn) return;
-    clearTimeout(timer);
-    active.abort();
-    setUprnStatus(`Намерено чрез ${found.provider}. Отварям Google Maps…`, "good");
-    // Retain a link for browsers that refuse automatic external-app switching.
-    uprnResultBox.classList.remove("hidden");
-    uprnResultBox.replaceChildren(makeLink("Отвори Google Maps ↗", mapsUrl("",found.point),"link-button maps-main"));
-    // One tap (or paste) starts the whole process. No second click is needed on success.
-    window.location.assign(mapsUrl("",found.point));
-  } catch(err) {
-    if (uprnController !== active) return;
-    if (active.signal.aborted) {
-      setUprnStatus("Източниците не отговориха навреме. Опитай отново, когато имаш добра връзка.", "error");
+    if (found) {
+      const destination = mapsUrl("",found.point);
+      setUprnStatus(`Координатите са намерени чрез ${found.provider}. Отварям Google Maps…`,"good");
+      // When Android prevents a delayed app switch, leave a single manual fallback.
       uprnResultBox.classList.remove("hidden");
-      uprnResultBox.replaceChildren(makeLink("Провери имота в uprns.io ↗",`https://uprns.io/uprns/${uprn}`,"secondary link-button secondary-link"));
+      uprnResultBox.replaceChildren(makeLink("Отвори Google Maps ↗", destination, "link-button maps-main"));
+      window.location.assign(destination);
     } else {
-      showUprnError(uprn,err instanceof AggregateError ? err.errors : [err]);
+      showUprnFailure(uprn,problems,details);
     }
   } finally {
-    clearTimeout(timer);
-    if (uprnController === active) {uprnController=null;uprnBtn.disabled=false;}
+    if (uprnController === active) {
+      active.abort(); uprnController = null; uprnBtn.disabled = false;
+    }
   }
 }
 $("search-form").addEventListener("submit", (event) => {event.preventDefault();doSearch();});

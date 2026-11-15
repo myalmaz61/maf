@@ -15,7 +15,7 @@
 <body>
   <main class="app">
     <header class="hero">
-      <div class="brand"><span class="brand-icon" aria-hidden="true">⌖</span><span>MY ADDRESS FINDER <small>v0.3 · директно към Maps</small></span></div>
+      <div class="brand"><span class="brand-icon" aria-hidden="true">⌖</span><span>MY ADDRESS FINDER <small>v0.4 · директно към Maps</small></span></div>
       <h1>Намери адрес.<br><em>Тръгни с Maps.</em></h1>
       <p>Въведи UPRN и премини директно към Google Maps. Postcode търсенето остава като допълнителна опция.</p>
     </header>
@@ -29,10 +29,11 @@
           <input id="uprn" name="uprn" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="12" placeholder="1–12 цифри" required aria-describedby="uprn-hint">
           <button id="uprn-btn" type="submit">Към Maps</button>
         </div>
-        <p class="hint" id="uprn-hint">При успешна проверка Maps се отваря автоматично. Изисква интернет; нито един UPRN не се запазва.</p>
+        <p class="hint" id="uprn-hint">При успешно търсене Google Maps се отваря автоматично. Ако директната връзка не работи, използваме безплатен посредник cors.dev. Услугите получават UPRN, но приложението не записва история.</p>
       </form>
       <div id="uprn-status" class="status" role="status" aria-live="polite">Готово. Постави UPRN или го въведи и натисни „Към Maps“.</div>
       <div id="uprn-result" class="uprn-result hidden"></div>
+      <details id="uprn-debug" class="uprn-debug hidden"><summary>Подробности за грешката</summary><pre id="uprn-log"></pre><p>„CORS/мрежа“ не означава непременно, че UPRN е грешен. Ако е HTTP 404, възможно е имотът да липсва от данните.</p></details>
     </section>
 
     <section class="panel" aria-labelledby="search-heading">
@@ -70,7 +71,7 @@
 
     <footer>
       <p>Адреси: © OpenStreetMap contributors (<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">ODbL</a>). Postcode координати: <a href="https://postcodes.io/" target="_blank" rel="noopener noreferrer">Postcodes.io</a>.</p>
-      <p>UPRN: <a href="https://uprns.io/" target="_blank" rel="noopener noreferrer">uprns.io</a> и <a href="https://uprn.org.uk/" target="_blank" rel="noopener noreferrer">UPRN.org.uk</a> · Contains OS data © Crown copyright and database right 2026 · ONS data, Open Government Licence v3.0.</p>
+      <p>UPRN: <a href="https://uprns.io/" target="_blank" rel="noopener noreferrer">uprns.io</a> и <a href="https://uprn.org.uk/" target="_blank" rel="noopener noreferrer">UPRN.org.uk</a> · Contains OS data © Crown copyright and database right 2026 · ONS data, Open Government Licence v3.0. Резервна връзка чрез <a href="https://cors.dev/privacy" target="_blank" rel="noopener noreferrer">cors.dev</a>.</p>
       <p>Лично ползване · Без сървър, логин, съхранени адреси или API ключ.</p>
     </footer>
   </main>

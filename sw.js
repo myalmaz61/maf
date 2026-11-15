@@ -1,5 +1,5 @@
-// v0.3: cache only the app shell; always use the live network for addresses.
-const CACHE = "my-address-finder-shell-v0.3.0";
+// v0.4: cache only the app shell; always use the live network for addresses.
+const CACHE = "my-address-finder-shell-v0.4.0";
 const SHELL = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
